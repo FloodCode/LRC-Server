@@ -33,7 +33,7 @@ function onConnection(ws) {
 			return;
 		}
 		
-		datahandler.saveData(clients[ws], lrcdata);
+		datahandler.saveData(clients[ws].id, lrcdata);
 	}
 
 	// On text message
@@ -48,19 +48,45 @@ function onConnection(ws) {
 			log.error('Can\'t parse json from client');
 			return;
 		}
+
+		// Skip bad JSONs
+		if (request.name == undefined || request.data == undefined) {
+			log.error('Bad json');
+			return;
+		}
 		
 		// Handle request object
 		switch (request.name) {
+
+			// Client's request for new sha256
 			case 'get-uid':
 			var uid = tools.newUID();
 			ws.send('uid:' + uid);
 			break;
+
+			// Client's authorization
 			case 'set-uid':
-			var uid = request.data;
-			// TODO: Validate UID
-			clients[ws] = uid;
+			if (clients[ws] != undefined) {
+				break;
+			}
+
+			datahandler.getUserID(request.data, authorizeClient);
+			
 			break;
+
 		}
+	}
+
+	// Add 
+	function authorizeClient(userID, sha256) {
+		if (userID == -1) return;
+
+		clients[ws] = {
+			id: userID,
+			sha256: sha256
+		};
+
+		ws.send('inf:uid-accepted');
 	}
 
 	// On new message
