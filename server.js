@@ -1,39 +1,46 @@
 // Requires
-var WebSocketServer = require('ws').Server
-var log	            = require('./modules/log.js');
-var tools	        = require('./modules/tools.js');
-var lrcreader	    = require('./modules/lrcdata-reader.js');
-var datahandler	    = require('./modules/data-handler.js');
+const WebSocketServer = require('ws').Server
+const log             = require('./modules/log.js');
+const tools           = require('./modules/tools.js');
+const lrcreader       = require('./modules/lrcdata-reader.js');
+const datahandler     = require('./modules/data-handler.js');
+
+// Array of autrorized clients
+let clients = new Array();
 
 // Start websocket server
-var wss = new WebSocketServer({ port: 8080 });
-
-// Clients array
-var clients = new Array();
+const wss = new WebSocketServer({ port: 8080 });
+wss.on('connection', onConnection);
+log.info('Server started');
 
 // On new connection
 function onConnection(ws) {
 
-    ws.send('Connection accepted');
-    log.info('Socket connected');
+    // Event handlers
+    ws.on('open', onOpen);
+    ws.on('message', onMessage);
+    ws.on('close', onClose);
 
-    // On binary message
-    function handleBinaryMessage(message) {
+    // On connection open
+    function onOpen() {
+	    log.info('Socket connected');
+    }
 
-        if (clients[ws] == undefined) {
-            log.error('Binary message from unauthorized user. Disconnecting.');
-            ws.terminate();
-            return;
+    // On new message
+    function onMessage(message, flags) {
+        if (flags.binary) {
+            handleBinaryMessage(message);
+        } else {
+            handleTextMessage(message);
         }
+    }
 
-        var lrcdata = lrcreader.read(message);
-        
-        if (!lrcdata.ok) {
-            log.error('Can\'t parse LRCData');
-            return;
+    // On connection close
+    function onClose(code, message) {
+        if (clients[ws] != undefined) {
+            delete clients[ws];
         }
-        
-        datahandler.saveData(clients[ws].id, lrcdata);
+        log.info('Socket disconnected');
     }
 
     // On text message
@@ -66,18 +73,42 @@ function onConnection(ws) {
 
             // Client's authorization
             case 'set-uid':
+            // Skip authorization if client is already authorized
             if (clients[ws] != undefined) {
                 break;
             }
 
             datahandler.getUserID(ws, request.data, authorizeClient);
-            
             break;
 
         }
+
     }
 
-    // Add client to clients array
+    // On binary message
+    function handleBinaryMessage(message) {
+
+        // Skip binary message if user isn't authorized
+        if (clients[ws] == undefined) {
+            log.error('Binary message from unauthorized user. Disconnecting.');
+            ws.terminate();
+            return;
+        }
+
+        // Parse binary data from client into object
+        var lrcdata = lrcreader.read(message);
+        
+        // Skip binary message if cannot parse data into object
+        if (!lrcdata.ok) {
+            log.error('Can\'t parse LRCData');
+            return;
+        }
+        
+        // Save parsed data into database
+        datahandler.saveData(clients[ws].id, lrcdata);
+    }
+
+    // Add client to authorized clients array
     function authorizeClient(userID, sha256) {
         if (userID == -1) return;
 
@@ -88,24 +119,4 @@ function onConnection(ws) {
 
         ws.send('inf:uid-accepted');
     }
-
-    // On new message
-    ws.on('message', function onMessage(message, flags) {
-
-        if (flags.binary) {
-            handleBinaryMessage(message);
-        } else {
-            handleTextMessage(message);
-        }
-
-    });
-
-    // On connection close
-    ws.on('close', function onClose(code, message) {
-        delete clients[ws];
-        log.info('Socket disconnected');
-    });
 }
-
-log.info('Server started');
-wss.on('connection', onConnection);

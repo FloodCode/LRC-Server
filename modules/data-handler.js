@@ -1,3 +1,4 @@
+// Requires
 const mysql = require('mysql');
 const keyTable = require('./keycodes.json');
 
