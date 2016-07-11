@@ -70,14 +70,14 @@ function onConnection(ws) {
 				break;
 			}
 
-			datahandler.getUserID(request.data, authorizeClient);
+			datahandler.getUserID(ws, request.data, authorizeClient);
 			
 			break;
 
 		}
 	}
 
-	// Add 
+	// Add client to clients array
 	function authorizeClient(userID, sha256) {
 		if (userID == -1) return;
 
