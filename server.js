@@ -16,7 +16,7 @@ log.info('Server started');
 // On new connection
 function onConnection(ws) {
 
-    // Event handlers
+    // Bind event handlers
     ws.on('open', onOpen);
     ws.on('message', onMessage);
     ws.on('close', onClose);
@@ -77,7 +77,7 @@ function onConnection(ws) {
             if (clients[ws] != undefined) {
                 break;
             }
-
+            // Try to authorize client
             datahandler.getUserID(ws, request.data, authorizeClient);
             break;
 
@@ -110,13 +110,13 @@ function onConnection(ws) {
 
     // Add client to authorized clients array
     function authorizeClient(userID, sha256) {
-        if (userID == -1) return;
 
         clients[ws] = {
             id: userID,
             sha256: sha256
         };
 
+        // Notify client that it was successfully authorized
         ws.send('inf:uid-accepted');
     }
 }
