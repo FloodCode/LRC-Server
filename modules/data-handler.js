@@ -155,5 +155,10 @@ function getUserID(ws, sha256, callback) {
     });
 }
 
+function setLatency(sha256, latency) {
+    db.query('UPDATE users SET latency = ? WHERE sha256 = ?', [latency, sha256]);
+}
+
 module.exports.saveData = saveData;
 module.exports.getUserID = getUserID;
+module.exports.setLatency = setLatency;

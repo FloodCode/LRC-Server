@@ -9,22 +9,22 @@ const datahandler     = require('./modules/data-handler.js');
 let clients = new Array();
 
 // Start websocket server
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ port: 1337 });
 wss.on('connection', onConnection);
 log.info('Server started');
 
 // On new connection
 function onConnection(ws) {
 
+    // Latency measurement start
+    let pingTime = null;
+
     // Bind event handlers
-    ws.on('open', onOpen);
     ws.on('message', onMessage);
     ws.on('close', onClose);
+    ws.on('pong', onPong);
 
-    // On connection open
-    function onOpen() {
-	    log.info('Socket connected');
-    }
+    log.info('[' + ws._socket.remoteAddress + '] Client connected');
 
     // On new message
     function onMessage(message, flags) {
@@ -40,7 +40,16 @@ function onConnection(ws) {
         if (clients[ws] != undefined) {
             delete clients[ws];
         }
-        log.info('Socket disconnected');
+        log.info('[' + ws._socket.remoteAddress + '] Client disconnected');
+    }
+
+    // On pong
+    function onPong(data, flags) {
+        let now = Date.now();
+        if (pingTime !== null && clients[ws] != undefined) {
+            let latency =  now - pingTime;
+            datahandler.setLatency(clients[ws]['sha256'], latency);
+        }
     }
 
     // On text message
@@ -118,5 +127,7 @@ function onConnection(ws) {
 
         // Notify client that it was successfully authorized
         ws.send('inf:uid-accepted');
+        pingTime = Date.now();
+        ws.ping('Hi');
     }
 }
